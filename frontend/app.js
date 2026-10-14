@@ -21,6 +21,18 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Poll status periodically (every 1s if running, 4s if idle)
   startStatusPolling();
+
+  // Keepalive heartbeat every 3 seconds to keep server alive
+  setInterval(() => {
+    fetch("/api/heartbeat", { method: "POST" }).catch(() => {});
+  }, 3000);
+
+  // Send shutdown beacon when window is closed
+  window.addEventListener("beforeunload", () => {
+    try {
+      navigator.sendBeacon("/api/shutdown");
+    } catch (e) {}
+  });
 });
 
 // =========================================================================

@@ -58,6 +58,30 @@ from visualization import Visualizer
 from reporting import ReportGenerator
 
 
+PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
+
+
+class ServerActivity:
+    """Tracks active client connections and idle status."""
+    def __init__(self):
+        self.lock = threading.Lock()
+        self.last_seen = time.time()
+        self.has_client = False
+        self.shutdown_requested = False
+
+    def touch(self):
+        with self.lock:
+            self.last_seen = time.time()
+            self.has_client = True
+
+    def request_shutdown(self):
+        with self.lock:
+            self.shutdown_requested = True
+
+
+SERVER_ACTIVITY = ServerActivity()
+
+
 # Global simulation state manager
 class SimulationState:
     def __init__(self):
@@ -68,7 +92,7 @@ class SimulationState:
         self.logs: list[str] = []
         self.latest_result: Optional[Dict[str, Any]] = None
         self.error: Optional[str] = None
-        self.output_dir = os.path.abspath("./output")
+        self.output_dir = os.path.abspath(os.path.join(PROJECT_ROOT, "output"))
 
     def reset_for_run(self):
         with self.lock:
@@ -333,13 +357,15 @@ class DesktopRequestHandler(http.server.SimpleHTTPRequestHandler):
             super().log_message(format, *args)
 
     def do_GET(self):
+        SERVER_ACTIVITY.touch()
         parsed = urllib.parse.urlparse(self.path)
         path = parsed.path
 
         if path in ("/", "/index.html"):
-            self.serve_file(os.path.join("frontend", "index.html"), "text/html; charset=utf-8")
+            self.serve_file(os.path.join(PROJECT_ROOT, "frontend", "index.html"), "text/html; charset=utf-8")
         elif path.startswith("/frontend/"):
             rel_path = path.lstrip("/")
+            file_path = os.path.join(PROJECT_ROOT, rel_path)
             content_type = "text/plain"
             if rel_path.endswith(".css"):
                 content_type = "text/css; charset=utf-8"
@@ -347,7 +373,7 @@ class DesktopRequestHandler(http.server.SimpleHTTPRequestHandler):
                 content_type = "application/javascript; charset=utf-8"
             elif rel_path.endswith(".html"):
                 content_type = "text/html; charset=utf-8"
-            self.serve_file(rel_path, content_type)
+            self.serve_file(file_path, content_type)
         elif path == "/api/status":
             self.send_json_response({
                 "is_running": SIM_STATE.is_running,
@@ -409,6 +435,7 @@ class DesktopRequestHandler(http.server.SimpleHTTPRequestHandler):
             super().do_GET()
 
     def do_POST(self):
+        SERVER_ACTIVITY.touch()
         parsed = urllib.parse.urlparse(self.path)
         path = parsed.path
 
@@ -455,6 +482,11 @@ class DesktopRequestHandler(http.server.SimpleHTTPRequestHandler):
                 })
             except Exception as e:
                 self.send_json_response({"error": str(e)}, status=400)
+        elif path == "/api/heartbeat":
+            self.send_json_response({"status": "alive"})
+        elif path == "/api/shutdown":
+            SERVER_ACTIVITY.request_shutdown()
+            self.send_json_response({"status": "shutting_down"})
         else:
             self.send_response(404)
             self.end_headers()
