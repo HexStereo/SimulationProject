@@ -9,6 +9,17 @@ Bu proje; bir yoklama/doğrulama sisteminde sunucu tarafından üretilen 6 hanel
 ```
 SimulationProject/
 │
+├── desktop_app.py        # Masaüstü uygulaması başlatıcısı (Edge App Mode)
+├── desktop_server.py     # Yerel REST API ve çok iş parçacıklı simülasyon sunucusu
+├── launch.bat             # Windows masaüstü çift tıklama başlatıcı betiği
+├── create_desktop_shortcut.py # Masaüstüne .lnk kısayolu oluşturan araç
+├── assets/                # Uygulama ikonları (.ico ve .png)
+│   ├── icon.ico
+│   └── icon.png
+├── frontend/              # Modern Dark Glassmorphism Masaüstü Arayüzü
+│   ├── index.html
+│   ├── style.css
+│   └── app.js
 ├── generators.py          # Uniform, PRNG, CSPRNG ve 6 adet kontrollü kusurlu üretici modeli
 ├── collision_analysis.py  # Doğum günü problemi matematiği, Wilson CI, binomial hipotez testleri
 ├── statistics_tests.py    # Chi-Square (Cochran + Monte Carlo), Entropi, Runs, Otokorelasyon, FDR
@@ -68,6 +79,28 @@ Tüm birim ve matematiksel doğrulama testlerini çalıştırmak için:
 ```bash
 pytest -v
 ```
+
+---
+
+## 🖥️ Masaüstü Uygulamasını Çalıştırma (GUI)
+
+### 1. Masaüstü Kısayolu ile (Önerilen)
+Masaüstünüzde otomatik olarak oluşturulan **`6-Haneli Kod Simulatoru`** ikonuna çift tıklayarak doğrudan uygulamayı açabilirsiniz.
+
+*Kısayolu yeniden oluşturmak isterseniz:*
+```bash
+python create_desktop_shortcut.py
+```
+
+### 2. Batch veya Terminal ile Çalıştırma:
+```bash
+# launch.bat dosyasına çift tıklayabilir veya terminalden çalıştırabilirsiniz:
+.\launch.bat
+
+# veya doğrudan Python ile:
+python desktop_app.py
+```
+Uygulama, Microsoft Edge App Mode (veya varsayılan tarayıcı) üzerinden bağımsız, modern koyu temalı bir masaüstü penceresi olarak anında başlatılır.
 
 ---
 

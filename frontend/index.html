@@ -1,0 +1,558 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>6 Haneli Kod İstatistiksel Anomali & Periyot Simülatörü</title>
+  <meta name="description" content="6 haneli sayısal doğrulama kodlarının istatistiksel kalitesini, rastlantısallığını, periyodikliğini ve 40 dakikalık çakışma anomalisini analiz eden masaüstü simülasyon arayüzü.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/frontend/style.css">
+</head>
+<body>
+  <div class="app-layout">
+    <!-- TOP HEADER -->
+    <header class="app-header">
+      <div class="brand">
+        <div class="brand-icon">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
+            <polyline points="2 17 12 22 22 17"></polyline>
+            <polyline points="2 12 12 17 22 12"></polyline>
+          </svg>
+        </div>
+        <div class="brand-text">
+          <h1 class="brand-title">6-Haneli Kod Anomali & Periyot Simülatörü</h1>
+          <span class="brand-subtitle">Kıdemli PRNG / RNG İstatistiksel Doğrulama & 40-Dakika Çakışma Denetimi</span>
+        </div>
+      </div>
+      <div class="header-actions">
+        <div id="system-status-pill" class="status-pill status-ready">
+          <span class="pulse-dot"></span>
+          <span id="status-text">Hazır</span>
+        </div>
+        <button id="btn-open-folder" class="btn btn-secondary" title="Çıktı klasörünü dosya gezgininde aç">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
+          </svg>
+          Çıktı Klasörünü Aç
+        </button>
+        <button id="btn-refresh-data" class="btn btn-secondary" title="Sonuçları yeniden yükle">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="23 4 23 10 17 10"></polyline>
+            <polyline points="1 20 1 14 7 14"></polyline>
+            <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+          </svg>
+          Yenile
+        </button>
+      </div>
+    </header>
+
+    <div class="app-body">
+      <!-- SIDEBAR CONTROLS -->
+      <aside class="sidebar">
+        <div class="sidebar-section">
+          <h2 class="section-title">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+            Deney Parametreleri
+          </h2>
+
+          <!-- Generator selection -->
+          <div class="control-group">
+            <label for="select-generator" class="control-label">Test Edilecek Üreteç Modeli</label>
+            <select id="select-generator" class="form-select">
+              <option value="all" selected>★ Tüm Üreteçleri Karşılaştır (Önerilen)</option>
+              <optgroup label="Referans ve Güvenli Modeller">
+                <option value="uniform">Uniform Referans (NumPy PCG64)</option>
+                <option value="standard">Standard PRNG (Mersenne Twister MT19937)</option>
+                <option value="crypto">Cryptographic CSPRNG (Python secrets)</option>
+              </optgroup>
+              <optgroup label="Kontrollü Kusurlu Modeller">
+                <option value="seedreuse">Kusur 1: Statik Tohum Sıfırlama (Seed Reuse)</option>
+                <option value="lowres">Kusur 2: Kaba Zaman Damgası Tohumu (Low-Res)</option>
+                <option value="lcg">Kusur 3: Kısa Periyotlu Oyuncak LCG (m=8192)</option>
+                <option value="digitbias">Kusur 4: Rakam Frekans Sapması (Digit Bias)</option>
+                <option value="timedeterministic">Kusur 5: Zamana Bağlı 40-dk Periyot (Harmonik)</option>
+                <option value="modulo">Kusur 6: Modülo Sapması (2^20 mod 10^6)</option>
+              </optgroup>
+            </select>
+          </div>
+
+          <!-- Sample size -->
+          <div class="control-group">
+            <label class="control-label">Örneklem Büyüklüğü (N Kod)</label>
+            <div class="pill-group" id="pill-sample-size">
+              <button type="button" class="pill-btn" data-val="1000">1K</button>
+              <button type="button" class="pill-btn" data-val="10000">10K</button>
+              <button type="button" class="pill-btn active" data-val="100000">100K</button>
+              <button type="button" class="pill-btn" data-val="1000000">1M</button>
+            </div>
+            <input type="number" id="input-sample-size" class="form-input" value="100000" min="100" max="2000000" step="1000">
+          </div>
+
+          <!-- 40-Min Trials -->
+          <div class="control-group">
+            <label class="control-label">40-Dakika Çift Deneyi Tekrarı (T Çift)</label>
+            <div class="pill-group" id="pill-trials">
+              <button type="button" class="pill-btn" data-val="5000">5K</button>
+              <button type="button" class="pill-btn active" data-val="20000">20K</button>
+              <button type="button" class="pill-btn" data-val="50000">50K</button>
+              <button type="button" class="pill-btn" data-val="100000">100K</button>
+            </div>
+            <input type="number" id="input-trials" class="form-input" value="20000" min="100" max="500000" step="1000">
+          </div>
+
+          <!-- Time Delta -->
+          <div class="control-group">
+            <div class="label-with-val">
+              <label for="input-delta-minutes" class="control-label">Zaman Gecikmesi (Aralık)</label>
+              <span id="label-delta-val" class="highlight-val">40.0 dk</span>
+            </div>
+            <input type="range" id="input-delta-minutes" class="form-range" min="5" max="120" step="5" value="40">
+          </div>
+
+          <!-- Random Seed -->
+          <div class="control-group">
+            <label for="input-seed" class="control-label">Tekrarlanabilirlik Seed (Tohum)</label>
+            <div class="input-with-action">
+              <input type="number" id="input-seed" class="form-input" value="42">
+              <button type="button" id="btn-shuffle-seed" class="btn btn-icon" title="Rastgele seed ata">
+                🎲
+              </button>
+            </div>
+          </div>
+
+          <!-- Options -->
+          <div class="control-group">
+            <label class="checkbox-label">
+              <input type="checkbox" id="check-benchmark" checked>
+              <span>Çok Ölçekli Benchmarkı Dahil Et (1k, 10k, 100k, 1M)</span>
+            </label>
+          </div>
+
+          <!-- RUN BUTTON -->
+          <button id="btn-start-simulation" class="btn btn-primary btn-large">
+            <span class="btn-spinner hidden" id="run-spinner"></span>
+            <span id="btn-run-text">🚀 Simülasyonu Başlat</span>
+          </button>
+        </div>
+
+        <!-- LIVE PROGRESS & STATUS BOX -->
+        <div class="sidebar-section progress-box" id="progress-box">
+          <div class="progress-header">
+            <span class="progress-title" id="progress-step-name">Sistem Beklemede</span>
+            <span class="progress-pct" id="progress-percent">0%</span>
+          </div>
+          <div class="progress-bar-track">
+            <div class="progress-bar-fill" id="progress-bar-fill" style="width: 0%;"></div>
+          </div>
+          <div class="live-log-snippet" id="live-log-snippet">
+            Bekleniyor...
+          </div>
+        </div>
+      </aside>
+
+      <!-- MAIN CONTENT AREA -->
+      <main class="main-content">
+        <!-- KPI METRICS BANNER -->
+        <section class="kpi-grid">
+          <!-- CARD 1: OFFICIAL CLASSIFICATION -->
+          <div class="kpi-card kpi-classification" id="card-classification">
+            <div class="kpi-header">
+              <span class="kpi-tag">NİHAİ DEĞERLENDİRME</span>
+              <span class="kpi-icon" id="class-icon">🛡️</span>
+            </div>
+            <div class="kpi-main-val" id="kpi-class-title">Kategori 1</div>
+            <div class="kpi-desc" id="kpi-class-desc">Belirgin istatistiksel anomali gözlenmedi.</div>
+          </div>
+
+          <!-- CARD 2: 40-MIN COLLISION RATE -->
+          <div class="kpi-card">
+            <div class="kpi-header">
+              <span class="kpi-tag">40-DK İLK 3 HANE ÇAKIŞMA ORANI</span>
+              <span class="kpi-badge badge-neutral">Teorik: %0.1000</span>
+            </div>
+            <div class="kpi-main-val" id="kpi-collision-rate">-%</div>
+            <div class="kpi-sub-stats">
+              <span>Çakışma: <b id="kpi-collision-count">-</b> / <span id="kpi-collision-trials">-</span> çift</span>
+              <span>Kat: <b id="kpi-collision-ratio">-</b>x</span>
+            </div>
+          </div>
+
+          <!-- CARD 3: CHI-SQUARE GOF -->
+          <div class="kpi-card">
+            <div class="kpi-header">
+              <span class="kpi-tag">CHI-SQUARE UYGUNLUK TESTİ</span>
+              <span class="kpi-badge badge-neutral" id="kpi-chi2-status">dof: 999</span>
+            </div>
+            <div class="kpi-main-val" id="kpi-chi2-p">p = -</div>
+            <div class="kpi-sub-stats">
+              <span>İstatistik: <b id="kpi-chi2-stat">-</b></span>
+              <span>Cochran: <b id="kpi-chi2-cochran">-</b></span>
+            </div>
+          </div>
+
+          <!-- CARD 4: SHANNON ENTROPY -->
+          <div class="kpi-card">
+            <div class="kpi-header">
+              <span class="kpi-tag">BİLGİ ENTROPİSİ (SHANNON)</span>
+              <span class="kpi-badge badge-neutral">Max: 9.9658 bit</span>
+            </div>
+            <div class="kpi-main-val" id="kpi-entropy-val">- bit</div>
+            <div class="kpi-sub-stats">
+              <span>Verimlilik: <b id="kpi-entropy-eff">-%</b></span>
+              <span>Kayıp: <b id="kpi-entropy-loss">- bit</b></span>
+            </div>
+          </div>
+
+          <!-- CARD 5: SERIAL INDEPENDENCE -->
+          <div class="kpi-card">
+            <div class="kpi-header">
+              <span class="kpi-tag">RUNS & OTOKORELASYON</span>
+              <span class="kpi-badge badge-neutral">Sırasal Bağımsızlık</span>
+            </div>
+            <div class="kpi-main-val" id="kpi-runs-status">-</div>
+            <div class="kpi-sub-stats">
+              <span>Runs Z: <b id="kpi-runs-z">-</b></span>
+              <span>Ljung-Box p: <b id="kpi-autocorr-p">-</b></span>
+            </div>
+          </div>
+        </section>
+
+        <!-- TABS BAR -->
+        <nav class="tabs-nav">
+          <button class="tab-btn active" data-tab="tab-collision">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 20V10"></path><path d="M12 20V4"></path><path d="M6 20v-6"></path></svg>
+            40-Dakika Çakışma Karşılaştırması
+          </button>
+          <button class="tab-btn" data-tab="tab-charts">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
+            Teşhis Grafikleri (8 Figür)
+          </button>
+          <button class="tab-btn" data-tab="tab-birthday">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 14 14"></polyline></svg>
+            Doğum Günü Paradoksu Hesaplayıcı
+          </button>
+          <button class="tab-btn" data-tab="tab-tests">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+            12-Test Bataryası & FDR
+          </button>
+          <button class="tab-btn" data-tab="tab-report">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+            Denetim Raporu (Markdown)
+          </button>
+          <button class="tab-btn" data-tab="tab-logs">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="4 17 10 11 4 5"></polyline><line x1="12" y1="19" x2="20" y2="19"></line></svg>
+            Canlı Konsol Logları
+          </button>
+        </nav>
+
+        <!-- TAB 1: 40-MIN COLLISION COMPARISON -->
+        <section class="tab-pane active" id="tab-collision">
+          <div class="panel-card">
+            <div class="panel-header">
+              <div>
+                <h3 class="panel-title">Üreteç Modelleri Arası 40-Dakika Çakışma Karşılaştırma Matrisi</h3>
+                <p class="panel-subtitle">Bağımsız uniform dağılımda teorik beklenti tam olarak %0.1000'dir (1/1000). Çiftler Wilson Score %95 güven aralığı ve iki yönlü exact Binomial test ile değerlendirilmiştir.</p>
+              </div>
+              <div class="table-legend">
+                <span class="legend-item"><span class="badge badge-success">Normal</span> Teorik beklentiyle uyumlu</span>
+                <span class="legend-item"><span class="badge badge-danger">Anomali</span> İstatistiki kusur saptandı</span>
+              </div>
+            </div>
+
+            <div class="table-responsive">
+              <table class="data-table" id="table-comparison">
+                <thead>
+                  <tr>
+                    <th>Model Adı</th>
+                    <th>Açıklama / Kusur Türü</th>
+                    <th>Deney Çifti</th>
+                    <th>İlk 3 Çakışma</th>
+                    <th>Gözlenen Oran</th>
+                    <th>%95 Wilson Güven Aralığı</th>
+                    <th>p-değeri</th>
+                    <th>Karar</th>
+                  </tr>
+                </thead>
+                <tbody id="tbody-comparison">
+                  <tr><td colspan="8" class="text-center py-4">Veriler yükleniyor...</td></tr>
+                </tbody>
+              </table>
+            </div>
+
+            <!-- Contextual Analytical Note -->
+            <div class="info-alert mt-4">
+              <div class="alert-icon">💡</div>
+              <div class="alert-content">
+                <strong>40 Dakika Aralıklı Tek Çakışma Neden Algoritmik Kusur Sayılmaz?</strong>
+                <p>İki bağımsız uniform kod çekildiğinde ilk 3 hanenin aynı gelme olasılığı 1/1.000'dir. Bir yoklama sisteminde günde 100 kod üretiliyorsa, en az bir çakışma olasılığı %99'un üzerindedir. Ancak yukarıdaki tabloda görüldüğü gibi, <em>Defect_TimeDeterministic</em> modeli 40 dakikalık periyotta <strong>%100 çakışma</strong> üretirken, <em>Defect_DigitBias</em> modeli ise <strong>%0.23</strong> çakışma üretmektedir. Bu simülatör, tekil tesadüf ile algoritmik kusuru kesin çizgilerle birbirinden ayırır.</p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- TAB 2: DIAGNOSTIC CHARTS -->
+        <section class="tab-pane" id="tab-charts">
+          <div class="panel-card">
+            <div class="panel-header">
+              <div>
+                <h3 class="panel-title">Yayın Kalitesinde Teşhis Grafikleri (300 DPI)</h3>
+                <p class="panel-subtitle">Her grafiğe tıklayarak yüksek çözünürlüklü modal görünümde inceleyebilirsiniz.</p>
+              </div>
+            </div>
+
+            <div class="charts-grid">
+              <!-- FIG 1 -->
+              <div class="chart-card" onclick="openImageModal('/output/fig1_first3_distribution.png', 'İlk 3 Hane Frekans Dağılımı (000-999)')">
+                <div class="chart-header">
+                  <span class="chart-id">Şekil 1</span>
+                  <span class="chart-name">İlk 3 Hane Dağılımı (000-999)</span>
+                </div>
+                <div class="chart-preview">
+                  <img src="/output/fig1_first3_distribution.png" alt="İlk 3 Hane Dağılımı" onerror="this.src=''; this.alt='Simülasyon çalıştırıldığında üretilecektir.';">
+                </div>
+                <div class="chart-caption">1.000 kategori üzerinde gözlenen frekanslar vs teorik %95 Poisson güven bandı.</div>
+              </div>
+
+              <!-- FIG 2 -->
+              <div class="chart-card" onclick="openImageModal('/output/fig2_digit_positions.png', 'Hane Pozisyonlarına Göre Rakam Dağılımları (0-9)')">
+                <div class="chart-header">
+                  <span class="chart-id">Şekil 2</span>
+                  <span class="chart-name">Hane Pozisyonları Rakam Dağılımı</span>
+                </div>
+                <div class="chart-preview">
+                  <img src="/output/fig2_digit_positions.png" alt="Rakam Dağılımları" onerror="this.src=''; this.alt='Simülasyon çalıştırıldığında üretilecektir.';">
+                </div>
+                <div class="chart-caption">6 hanenin her biri için 0-9 rakamlarının ayrık frekans homojenliği.</div>
+              </div>
+
+              <!-- FIG 3 -->
+              <div class="chart-card" onclick="openImageModal('/output/fig3_time_series.png', 'Zaman Ekseninde Kod Değişimi')">
+                <div class="chart-header">
+                  <span class="chart-id">Şekil 3</span>
+                  <span class="chart-name">Zaman Ekseninde Kod Değişimi</span>
+                </div>
+                <div class="chart-preview">
+                  <img src="/output/fig3_time_series.png" alt="Zaman Serisi" onerror="this.src=''; this.alt='Simülasyon çalıştırıldığında üretilecektir.';">
+                </div>
+                <div class="chart-caption">Kodların zaman serisi yörüngesi ve olası deterministik kaymalar.</div>
+              </div>
+
+              <!-- FIG 4 -->
+              <div class="chart-card" onclick="openImageModal('/output/fig4_collision_lag_distribution.png', 'Gecikmeye (Lag) Göre Çakışma Oranı')">
+                <div class="chart-header">
+                  <span class="chart-id">Şekil 4</span>
+                  <span class="chart-name">Gecikmeye Göre Çakışma Oranı</span>
+                </div>
+                <div class="chart-preview">
+                  <img src="/output/fig4_collision_lag_distribution.png" alt="Gecikme Taraması" onerror="this.src=''; this.alt='Simülasyon çalıştırıldığında üretilecektir.';">
+                </div>
+                <div class="chart-caption">5-120 dakika aralıklarında ilk 3 hane çakışma oranı ve %95 Wilson CI.</div>
+              </div>
+
+              <!-- FIG 5 -->
+              <div class="chart-card" onclick="openImageModal('/output/fig5_autocorrelation.png', 'Gecikmeli Otokorelasyon (Correlogram)')">
+                <div class="chart-header">
+                  <span class="chart-id">Şekil 5</span>
+                  <span class="chart-name">Gecikmeli Otokorelasyon</span>
+                </div>
+                <div class="chart-preview">
+                  <img src="/output/fig5_autocorrelation.png" alt="Otokorelogram" onerror="this.src=''; this.alt='Simülasyon çalıştırıldığında üretilecektir.';">
+                </div>
+                <div class="chart-caption">Lag 1..50 korelogramı ve Bartlett %95 beyaz gürültü eşikleri.</div>
+              </div>
+
+              <!-- FIG 6 -->
+              <div class="chart-card" onclick="openImageModal('/output/fig6_generator_comparison.png', 'Üreteçler Arası 40-Dakika Çakışma Karşılaştırması')">
+                <div class="chart-header">
+                  <span class="chart-id">Şekil 6</span>
+                  <span class="chart-name">Üreteç Çakışma Karşılaştırması</span>
+                </div>
+                <div class="chart-preview">
+                  <img src="/output/fig6_generator_comparison.png" alt="Üreteç Karşılaştırma" onerror="this.src=''; this.alt='Simülasyon çalıştırıldığında üretilecektir.';">
+                </div>
+                <div class="chart-caption">Referans vs kusurlu modellerin çakışma oranları ve teorik %0.1 çizgisi.</div>
+              </div>
+
+              <!-- FIG 7 -->
+              <div class="chart-card" onclick="openImageModal('/output/fig7_sample_size_chi2.png', 'Örneklem Büyüklüğüne Göre Chi-Square & Performans')">
+                <div class="chart-header">
+                  <span class="chart-id">Şekil 7</span>
+                  <span class="chart-name">Örneklem Boyutu & Chi-Square</span>
+                </div>
+                <div class="chart-preview">
+                  <img src="/output/fig7_sample_size_chi2.png" alt="Örneklem Benchmark" onerror="this.src=''; this.alt='Simülasyon çalıştırıldığında üretilecektir.';">
+                </div>
+                <div class="chart-caption">1K, 10K, 100K ve 1M kodda çalışma süresi ve p-değeri stabilitesi.</div>
+              </div>
+
+              <!-- FIG 8 -->
+              <div class="chart-card" onclick="openImageModal('/output/fig8_entropy_comparison.png', 'Shannon Entropisi Karşılaştırması')">
+                <div class="chart-header">
+                  <span class="chart-id">Şekil 8</span>
+                  <span class="chart-name">Shannon Entropisi Karşılaştırması</span>
+                </div>
+                <div class="chart-preview">
+                  <img src="/output/fig8_entropy_comparison.png" alt="Entropi Karşılaştırma" onerror="this.src=''; this.alt='Simülasyon çalıştırıldığında üretilecektir.';">
+                </div>
+                <div class="chart-caption">Tüm modellerin gözlenen entropisi vs teorik maksimum 9.9658 bit.</div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- TAB 3: BIRTHDAY PARADOX CALCULATOR -->
+        <section class="tab-pane" id="tab-birthday">
+          <div class="panel-card">
+            <div class="panel-header">
+              <div>
+                <h3 class="panel-title">İnteraktif Doğum Günü Paradoksu Hesaplayıcısı</h3>
+                <p class="panel-subtitle">Tekil iki kodun çakışma olasılığı ile bir havuzda üretilen N kod arasındaki en az bir çakışma olasılığı arasındaki farkı anında deneyimleyin.</p>
+              </div>
+            </div>
+
+            <div class="calculator-grid">
+              <div class="calculator-controls">
+                <div class="control-group">
+                  <div class="label-with-val">
+                    <label class="control-label">Üretilen Kod Sayısı (N)</label>
+                    <span id="calc-n-display" class="highlight-val">38 Kod</span>
+                  </div>
+                  <input type="range" id="calc-n-slider" class="form-range" min="2" max="150" value="38">
+                  <input type="number" id="calc-n-input" class="form-input mt-2" value="38" min="2" max="1000">
+                </div>
+
+                <div class="control-group">
+                  <label class="control-label">Kategori / Hane Alanı (M)</label>
+                  <select id="calc-m-select" class="form-select">
+                    <option value="1000" selected>İlk 3 Hane: 1.000 Kategori (000 - 999)</option>
+                    <option value="10000">İlk 4 Hane: 10.000 Kategori (0000 - 9999)</option>
+                    <option value="1000000">Tam 6 Hane: 1.000.000 Kategori (000000 - 999999)</option>
+                  </select>
+                </div>
+
+                <div class="quick-presets">
+                  <span class="text-muted text-sm">Hızlı Değerler:</span>
+                  <button type="button" class="btn btn-sm btn-secondary" onclick="setBirthdayN(10)">N = 10</button>
+                  <button type="button" class="btn btn-sm btn-secondary" onclick="setBirthdayN(38)">N = 38 (%50)</button>
+                  <button type="button" class="btn btn-sm btn-secondary" onclick="setBirthdayN(60)">N = 60 (%83)</button>
+                  <button type="button" class="btn btn-sm btn-secondary" onclick="setBirthdayN(100)">N = 100 (%99)</button>
+                </div>
+              </div>
+
+              <div class="calculator-results">
+                <div class="result-box">
+                  <div class="result-label">EN AZ BİR ÇAKIŞMA OLASILIĞI</div>
+                  <div class="result-number" id="calc-prob-result">%50.53</div>
+                  <div class="calc-progress-track">
+                    <div class="calc-progress-bar" id="calc-prob-bar" style="width: 50.53%;"></div>
+                  </div>
+                  <div class="result-formula mt-3">
+                    $$P(\ge 1 \text{ çakışma}) = 1 - \prod_{k=0}^{N-1} \left(1 - \frac{k}{M}\right)$$
+                  </div>
+                </div>
+
+                <div class="stats-mini-grid mt-3">
+                  <div class="mini-stat">
+                    <span class="mini-stat-label">Tek Çift Olasılığı:</span>
+                    <span class="mini-stat-val" id="calc-pair-prob">%0.1000</span>
+                  </div>
+                  <div class="mini-stat">
+                    <span class="mini-stat-label">Toplam Karşılaştırma:</span>
+                    <span class="mini-stat-val" id="calc-pair-count">703 Çift</span>
+                  </div>
+                  <div class="mini-stat">
+                    <span class="mini-stat-label">Beklenen Çakışan Çift:</span>
+                    <span class="mini-stat-val" id="calc-expected-pairs">0.70</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- TAB 4: 12-STEP TEST BATTERY & FDR -->
+        <section class="tab-pane" id="tab-tests">
+          <div class="panel-card">
+            <div class="panel-header">
+              <div>
+                <h3 class="panel-title">12-Adımlı İstatistiksel Test Bataryası & Çoklu Hipotez Düzeltmesi</h3>
+                <p class="panel-subtitle">Benjamini-Hochberg False Discovery Rate (FDR) düzeltmesiyle Tip-I hata (yanlış pozitif) kontrolü yapılmıştır.</p>
+              </div>
+            </div>
+
+            <div class="table-responsive">
+              <table class="data-table" id="table-fdr">
+                <thead>
+                  <tr>
+                    <th>Test Adı</th>
+                    <th>Ölçülen İstatistik</th>
+                    <th>Ham p-değeri</th>
+                    <th>FDR Düzeltilmiş p-değeri</th>
+                    <th>Anlamlılık (α=0.05)</th>
+                    <th>Açıklama / Yorum</th>
+                  </tr>
+                </thead>
+                <tbody id="tbody-fdr">
+                  <tr><td colspan="6" class="text-center py-4">Veriler yükleniyor...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- TAB 5: AUDIT REPORT (MARKDOWN) -->
+        <section class="tab-pane" id="tab-report">
+          <div class="panel-card">
+            <div class="panel-header">
+              <div>
+                <h3 class="panel-title">Otomatik Oluşturulan Resmi Denetim Raporu</h3>
+                <p class="panel-subtitle">Markdown formatındaki eksiksiz denetim çıktısı.</p>
+              </div>
+              <div class="action-buttons">
+                <button class="btn btn-secondary btn-sm" id="btn-copy-report">📋 Raporu Kopyala</button>
+              </div>
+            </div>
+
+            <div class="markdown-viewer" id="markdown-viewer">
+              Yükleniyor...
+            </div>
+          </div>
+        </section>
+
+        <!-- TAB 6: LIVE CONSOLE LOGS -->
+        <section class="tab-pane" id="tab-logs">
+          <div class="panel-card">
+            <div class="panel-header">
+              <div>
+                <h3 class="panel-title">Simülasyon Çalışma Günlüğü (Console Stream)</h3>
+                <p class="panel-subtitle">Arka plan işleminden aktarılan anlık sistem olayları.</p>
+              </div>
+              <button class="btn btn-secondary btn-sm" id="btn-clear-logs">Temizle</button>
+            </div>
+
+            <pre class="terminal-view" id="terminal-view">Terminal hazır. Simülasyon başlatıldığında loglar burada akacaktır.</pre>
+          </div>
+        </section>
+      </main>
+    </div>
+  </div>
+
+  <!-- IMAGE LIGHTBOX MODAL -->
+  <div class="modal-overlay hidden" id="image-modal">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h4 class="modal-title" id="modal-image-title">Grafik Görünümü</h4>
+        <button class="btn-close" id="btn-close-modal">&times;</button>
+      </div>
+      <div class="modal-body">
+        <img id="modal-image-elem" src="" alt="Yüksek Çözünürlüklü Grafik">
+      </div>
+    </div>
+  </div>
+
+  <script src="/frontend/app.js"></script>
+</body>
+</html>
