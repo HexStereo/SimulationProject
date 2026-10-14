@@ -222,7 +222,11 @@
 
         <!-- TABS BAR -->
         <nav class="tabs-nav">
-          <button class="tab-btn active" data-tab="tab-collision">
+          <button class="tab-btn active" data-tab="tab-live-radar">
+            <span class="live-beacon-dot"></span>
+            📡 Canlı Üretim & Tutarlılık Radarı (Modül 1 & 2)
+          </button>
+          <button class="tab-btn" data-tab="tab-collision">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 20V10"></path><path d="M12 20V4"></path><path d="M6 20v-6"></path></svg>
             40-Dakika Çakışma Karşılaştırması
           </button>
@@ -248,8 +252,248 @@
           </button>
         </nav>
 
+        <!-- TAB 0: LIVE RADAR (MODULE 1 & MODULE 2) -->
+        <section class="tab-pane active" id="tab-live-radar">
+          <div class="live-radar-container">
+            <!-- TOP LIVE STATUS BAR -->
+            <div class="live-radar-header">
+              <div>
+                <h3 class="panel-title">📡 Gerçek Zamanlı Zamana Bağlı Kod Üretimi ve Tutarlılık Analizörü</h3>
+                <p class="panel-subtitle">Sistem başlatıldığı anda arka planda tohum üretir; her kodun benzersizliğini, ardışık benzerlik oranlarını ve olası çakışmaları anlık günceller.</p>
+              </div>
+              <div class="live-header-stats">
+                <div class="live-indicator-pill">
+                  <span class="live-pulse-green" id="live-stream-dot"></span>
+                  <span id="live-stream-status-text">CANLI AKIŞ AKTİF</span>
+                </div>
+                <div class="live-speed-pill">
+                  <span>Hız:</span>
+                  <b id="live-current-eps">12.0</b>
+                  <span>kod/sn</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- TWO MAIN MODULES: SIDE BY SIDE -->
+            <div class="live-modules-grid">
+              <!-- MODULE 1: TIME SEED & CODE GENERATOR -->
+              <div class="module-card module-generator">
+                <div class="module-header">
+                  <div class="module-title-wrap">
+                    <span class="module-badge badge-mod1">MODÜL 1</span>
+                    <h4 class="module-title">Zamana Bağlı Random Seed & Kod Üretici</h4>
+                  </div>
+                  <span class="module-hint">Sistem Zaman Damgası Tohumu</span>
+                </div>
+
+                <div class="module-body">
+                  <div class="control-group">
+                    <label for="select-live-method" class="control-label">Aktif Tohumlama Algoritması</label>
+                    <select id="select-live-method" class="form-select">
+                      <option value="high_res_crypto" selected>1. Mikrosaniye + OS Entropi (Kriptografik İdeal Referans)</option>
+                      <option value="standard_second">2. 1-Saniye Zaman Damgası (Aynı saniyede mükerrer kod!)</option>
+                      <option value="coarse_periodic_40m">3. 40-Dakikalık Periyodik Döngü (Coarse Bucket)</option>
+                      <option value="harmonic_drift">4. Harmonik Faz Kayması (Zamana Bağlı İlk 3 Hane Kusuru)</option>
+                      <option value="linear_congruential_time">5. LCG Zaman Damgası Tohumlayıcı (Kısa Periyot)</option>
+                      <option value="digit_biased_time">6. Zaman Ağırlıklı Rakam Sapması (Digit Bias)</option>
+                    </select>
+                  </div>
+
+                  <div class="control-group">
+                    <label class="control-label">Üretim Hızı (Kod / Saniye)</label>
+                    <div class="pill-group" id="live-speed-pills">
+                      <button type="button" class="pill-btn" data-eps="2">2/sn</button>
+                      <button type="button" class="pill-btn" data-eps="5">5/sn</button>
+                      <button type="button" class="pill-btn active" data-eps="12">12/sn</button>
+                      <button type="button" class="pill-btn" data-eps="30">30/sn</button>
+                      <button type="button" class="pill-btn" data-eps="60">60/sn</button>
+                    </div>
+                  </div>
+
+                  <div class="live-action-row">
+                    <button id="btn-live-pause" class="btn btn-secondary">
+                      <span id="btn-live-pause-icon">⏸️</span>
+                      <span id="btn-live-pause-text">Üretimi Duraklat</span>
+                    </button>
+                    <button id="btn-live-reset" class="btn btn-secondary">
+                      <span>🔄</span>
+                      <span>İstatistikleri Sıfırla</span>
+                    </button>
+                  </div>
+
+                  <!-- DIGITAL CODE DISPLAY GAUGE -->
+                  <div class="digital-code-container">
+                    <span class="digital-code-label">EN SON ÜRETİLEN 6-HANELİ KOD</span>
+                    <div class="digital-code-display">
+                      <div class="digital-segment prefix-segment" title="İlk 3 Hane (Kovan / Prefix)">
+                        <span id="live-digit-p0">-</span>
+                        <span id="live-digit-p1">-</span>
+                        <span id="live-digit-p2">-</span>
+                      </div>
+                      <span class="digital-divider">•</span>
+                      <div class="digital-segment suffix-segment" title="Son 3 Hane">
+                        <span id="live-digit-s3">-</span>
+                        <span id="live-digit-s4">-</span>
+                        <span id="live-digit-s5">-</span>
+                      </div>
+                    </div>
+                    <div class="digital-meta-bar">
+                      <div class="meta-item">
+                        <span class="meta-label">Zaman:</span>
+                        <span class="meta-val" id="live-meta-time">--:--:--.---</span>
+                      </div>
+                      <div class="meta-item">
+                        <span class="meta-label">Seed:</span>
+                        <span class="meta-val mono" id="live-meta-seed">0</span>
+                      </div>
+                      <div class="meta-item">
+                        <span class="meta-label">Toplam:</span>
+                        <span class="meta-val font-bold" id="live-meta-count">0</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- MODULE 2: CONSISTENCY & SIMILARITY EVALUATOR -->
+              <div class="module-card module-evaluator">
+                <div class="module-header">
+                  <div class="module-title-wrap">
+                    <span class="module-badge badge-mod2">MODÜL 2</span>
+                    <h4 class="module-title">Tutarlılık, Benzerlik ve Anomali Analizörü</h4>
+                  </div>
+                  <div id="live-anomaly-pill" class="status-pill status-ready">
+                    <span class="pulse-dot"></span>
+                    <span id="live-anomaly-badge-text">ANALİZ EDİLİYOR...</span>
+                  </div>
+                </div>
+
+                <div class="module-body">
+                  <!-- METRIC 1: UNIQUENESS (DIFFERENT OUTPUTS) -->
+                  <div class="live-metric-card">
+                    <div class="live-metric-top">
+                      <span class="metric-title">1. Benzersizlik Oranı (Farklı Çıktı Üretimi)</span>
+                      <span class="metric-val" id="live-uniqueness-rate">100.00%</span>
+                    </div>
+                    <div class="mini-progress-track">
+                      <div class="mini-progress-fill fill-green" id="live-uniqueness-bar" style="width: 100%;"></div>
+                    </div>
+                    <div class="metric-sub-info">
+                      <span>Tekil Kod: <b id="live-unique-count">0</b> / <span id="live-total-count">0</span></span>
+                      <span>Kusur Durumu: <b id="live-repeat-status">Tekrarsız</b></span>
+                    </div>
+                  </div>
+
+                  <!-- METRIC 2: PREFIX SIMILARITY -->
+                  <div class="live-metric-card">
+                    <div class="live-metric-top">
+                      <span class="metric-title">2. İlk 3 Hane Ardışık Benzerlik Oranı</span>
+                      <span class="metric-val" id="live-prefix-sim-rate">0.1000%</span>
+                    </div>
+                    <div class="metric-sub-info">
+                      <span>Teorik Beklenti: <b>%0.1000</b> (1 / 1000)</span>
+                      <span>Havuz Çakışması: <b id="live-prefix-coll-count">0</b></span>
+                    </div>
+                  </div>
+
+                  <!-- METRIC 3: DIGIT-BY-DIGIT SIMILARITY -->
+                  <div class="live-metric-card">
+                    <div class="live-metric-top">
+                      <span class="metric-title">3. Hane Bazlı Hamming Benzerliği (6 Basamak)</span>
+                      <span class="metric-val" id="live-digit-sim-rate">10.00%</span>
+                    </div>
+                    <div class="metric-sub-info">
+                      <span>Ortalama Eşleşen: <b id="live-avg-digits">0.60</b> / 6 hane</span>
+                      <span>Teorik Beklenti: <b>%10.00</b> (1 / 10)</span>
+                    </div>
+                  </div>
+
+                  <!-- METRIC 4: ROLLING SHANNON ENTROPY -->
+                  <div class="live-metric-card">
+                    <div class="live-metric-top">
+                      <span class="metric-title">4. Bilgi Entropisi (Shannon 1000 Kategori)</span>
+                      <span class="metric-val" id="live-entropy-rate">9.96 bit</span>
+                    </div>
+                    <div class="metric-sub-info">
+                      <span>Entropi Verimliliği: <b id="live-entropy-eff">100.0%</b></span>
+                      <span>Maksimum Teorik: <b>9.9658 bit</b></span>
+                    </div>
+                  </div>
+
+                  <!-- ANOMALY REASON ALERT BOX -->
+                  <div id="live-anomaly-box" class="live-alert-box alert-normal">
+                    <span id="live-anomaly-detail-text">Sistem kararlı. Çıktılar rastlantısal bağımsızlık kriterlerini sağlıyor.</span>
+                  </div>
+
+                  <!-- RECENT COLLISION SUMMARY -->
+                  <div class="last-collision-row">
+                    <span class="text-muted">Son Çakışma Olayı:</span>
+                    <span id="live-last-collision-summary" class="collision-val-highlight">Henüz çakışma olmadı</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- LOWER DATA STREAMS: 2 TABLES -->
+            <div class="live-tables-grid">
+              <!-- TABLE 1: RECENT CODES STREAM -->
+              <div class="panel-card table-panel">
+                <div class="panel-header compact">
+                  <div>
+                    <h4 class="panel-title">Canlı Kod Üretim Akışı (Modül 1 Çıktısı)</h4>
+                    <p class="panel-subtitle">Anlık üretilen son 15 kodun zaman damgası, tohumu ve ilk 3 hane dökümü</p>
+                  </div>
+                </div>
+                <div class="table-responsive small-table">
+                  <table class="data-table" id="table-live-stream">
+                    <thead>
+                      <tr>
+                        <th># Sıra</th>
+                        <th>Zaman Damgası</th>
+                        <th>Üretilen Kod</th>
+                        <th>İlk 3 Hane</th>
+                        <th>Kullanılan Tohum (Seed)</th>
+                      </tr>
+                    </thead>
+                    <tbody id="tbody-live-stream">
+                      <tr><td colspan="5" class="text-center py-3">Kod akışı bekleniyor...</td></tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <!-- TABLE 2: DETECTED SIMILARITY & COLLISIONS -->
+              <div class="panel-card table-panel">
+                <div class="panel-header compact">
+                  <div>
+                    <h4 class="panel-title">Anlık Çakışma & Benzerlik Günlüğü (Modül 2 Analizi)</h4>
+                    <p class="panel-subtitle">İlk 3 hanesi veya tamamı eşleşen kodların adım ve zaman farkı analizi</p>
+                  </div>
+                </div>
+                <div class="table-responsive small-table">
+                  <table class="data-table" id="table-live-collisions">
+                    <thead>
+                      <tr>
+                        <th>Tür</th>
+                        <th>Eşleşen Değer</th>
+                        <th>Şimdiki Kod</th>
+                        <th>Önceki Kod</th>
+                        <th>Adım Farkı (Δk)</th>
+                        <th>Zaman Farkı (Δt)</th>
+                      </tr>
+                    </thead>
+                    <tbody id="tbody-live-collisions">
+                      <tr><td colspan="6" class="text-center py-3">Henüz çakışma tespit edilmedi.</td></tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
         <!-- TAB 1: 40-MIN COLLISION COMPARISON -->
-        <section class="tab-pane active" id="tab-collision">
+        <section class="tab-pane" id="tab-collision">
           <div class="panel-card">
             <div class="panel-header">
               <div>

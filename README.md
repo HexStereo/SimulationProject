@@ -9,14 +9,16 @@ Bu proje; bir yoklama/doğrulama sisteminde sunucu tarafından üretilen 6 hanel
 ```
 SimulationProject/
 │
+├── time_generator.py      # [MODÜL 1] Zamana Bağlı Random Seed & 6-Haneli Kod Üretici
+├── live_evaluator.py      # [MODÜL 2] Canlı Tutarlılık, Benzerlik ve Anomali Analizörü
 ├── desktop_app.py        # Masaüstü uygulaması başlatıcısı (Edge App Mode)
-├── desktop_server.py     # Yerel REST API ve çok iş parçacıklı simülasyon sunucusu
+├── desktop_server.py     # REST API & Canlı Akış / Simülasyon Sunucusu
 ├── launch.bat             # Windows masaüstü çift tıklama başlatıcı betiği
 ├── create_desktop_shortcut.py # Masaüstüne .lnk kısayolu oluşturan araç
 ├── assets/                # Uygulama ikonları (.ico ve .png)
 │   ├── icon.ico
 │   └── icon.png
-├── frontend/              # Modern Dark Glassmorphism Masaüstü Arayüzü
+├── frontend/              # Canlı Radar & Dark Glassmorphism Masaüstü Arayüzü
 │   ├── index.html
 │   ├── style.css
 │   └── app.js
@@ -30,26 +32,44 @@ SimulationProject/
 ├── main.py                # CLI giriş noktası ve parametre yöneticisi
 ├── requirements.txt       # Python bağımlılıkları (NumPy, SciPy, pandas, Matplotlib, pytest)
 │
-├── tests/                 # Kapsamlı birim ve istatistiksel doğrulama testleri
+├── tests/                 # Kapsamlı birim ve istatistiksel doğrulama testleri (30 Test)
 │   ├── __init__.py
+│   ├── test_live_engine.py # Modül 1 ve Modül 2 canlı motor testleri
 │   ├── test_generators.py
 │   ├── test_statistics.py
 │   ├── test_collision.py
-│   └── test_periodicity.py
-│
-└── output/                # Üretilen raporlar, metrikler ve grafikler (.png, .csv, .json, .md)
-    ├── audit_report.md
-    ├── results_summary.csv
-    ├── detailed_metrics.json
-    ├── fig1_first3_distribution.png
-    ├── fig2_digit_positions.png
-    ├── fig3_time_series.png
-    ├── fig4_collision_lag_distribution.png
-    ├── fig5_autocorrelation.png
-    ├── fig6_generator_comparison.png
-    ├── fig7_sample_size_chi2.png
-    └── fig8_entropy_comparison.png
+│   ├── test_periodicity.py
+│   └── test_server.py
 ```
+
+---
+
+## 📡 2 Ayrık Modüllü Canlı Mimari
+
+Proje iki ana modül ve gerçek zamanlı bir izleme radarı üzerine kuruludur:
+
+### 1. Modül 1: Zamana Bağlı Random Seed & Kod Üretici (`time_generator.py`)
+- Sistem zaman damgasını (mikrosaniye, saniye veya periyodik dalga) girdi olarak alır.
+- Algoritmik yöntemlerle dinamik tohumlar (seeds) türetir ve 6 haneli kodlar üretir (`000000` - `999999`).
+- Desteklenen tohumlama modları:
+  1. `high_res_crypto`: Mikrosaniye + OS kriptografik entropi karması (İdeal referans).
+  2. `standard_second`: Saniye çözünürlüklü tohumlama (Aynı saniye içinde gelen tüm isteklere aynı kodu üreten kusurlu model).
+  3. `coarse_periodic_40m`: 40 dakikalık periyodik döngüsel kovan tohumlama.
+  4. `harmonic_drift`: Zamana bağlı ilk 3 hane faz kayması (deterministik ilk 3 hane).
+  5. `linear_congruential_time`: LCG zaman damgası çarpanı ile kısa periyotlu tohumlama.
+  6. `digit_biased_time`: Belirli rakamlara ağırlık veren zaman sapması modeli.
+
+### 2. Modül 2: Canlı Tutarlılık, Benzerlik ve Anomali Analizörü (`live_evaluator.py`)
+- Modül 1'den akan kodları gerçek zamanlı tamponlarda işler:
+  - **Benzersizlik Oranı (Uniqueness %):** Sistemin her an farklı çıktılar üretip üretmediğini, mükerrer kodların varlığını anlık ölçer.
+  - **İlk 3 Hane Ardışık Benzerlik Oranı:** İki ardışık kodun ilk 3 hanesinin aynı olma olasılığı (Teorik beklenti: `%0.1000`).
+  - **Hane Bazlı Hamming Benzerliği:** 6 basamak üzerinde ardışık benzerlik oranı (Teorik beklenti: `%10.00`).
+  - **Rolling Shannon Entropisi:** 1000 kovan üzerinden anlık bilgi entropisi (Maksimum 9.9658 bit).
+  - **Anomali Skoru ve Risk Seviyesi:** Sapmaları saptadığında anında uyarı rozeti ve gerekçeleri sunar.
+
+### 3. Otomatik Canlı Başlatma
+- Masaüstü uygulaması açıldığı andan itibaren arka planda `LiveStreamingManager` daemon iş parçacığında üretime başlar.
+- Arayüz hiçbir butona basmaya gerek kalmadan canlı kod akışını ve anlık tutarlılık göstergelerini her 320ms'de bir günceller.
 
 ---
 

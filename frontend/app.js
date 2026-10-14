@@ -15,6 +15,7 @@ document.addEventListener("DOMContentLoaded", () => {
   setupActionButtons();
   setupBirthdayCalculator();
   setupImageModal();
+  setupLiveRadar();
 
   // Load existing results immediately if available
   fetchLatestResults();
@@ -569,3 +570,313 @@ function openImageModal(imgSrc, title) {
   titleElem.textContent = title || "Teşhis Grafiği";
   modal.classList.remove("hidden");
 }
+
+// =========================================================================
+// MODÜL 1 & MODÜL 2: CANLI RADAR VE TUTARLILIK AKIŞI
+// =========================================================================
+let liveStreamInterval = null;
+let liveIsPaused = false;
+let lastCodeIndexRendered = -1;
+
+function setupLiveRadar() {
+  // 1. Tohumlama Yöntemi Değişimi (Modül 1)
+  const methodSelect = document.getElementById("select-live-method");
+  if (methodSelect) {
+    methodSelect.addEventListener("change", (e) => {
+      fetch("/api/live/config", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ method: e.target.value })
+      }).catch(err => console.error("Error setting method:", err));
+    });
+  }
+
+  // 2. Üretim Hızı Butonları
+  const speedContainer = document.getElementById("live-speed-pills");
+  if (speedContainer) {
+    const pills = speedContainer.querySelectorAll(".pill-btn");
+    pills.forEach(pill => {
+      pill.addEventListener("click", () => {
+        pills.forEach(p => p.classList.remove("active"));
+        pill.classList.add("active");
+        const eps = parseFloat(pill.getAttribute("data-eps")) || 12.0;
+        fetch("/api/live/config", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ speed: eps })
+        }).catch(err => console.error("Error setting speed:", err));
+      });
+    });
+  }
+
+  // 3. Duraklat / Devam Et Butonu
+  const btnPause = document.getElementById("btn-live-pause");
+  if (btnPause) {
+    btnPause.addEventListener("click", () => {
+      liveIsPaused = !liveIsPaused;
+      fetch("/api/live/config", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ is_paused: liveIsPaused })
+      }).then(() => {
+        updatePauseButtonState(liveIsPaused);
+      }).catch(err => console.error("Error toggling pause:", err));
+    });
+  }
+
+  // 4. Sıfırla Butonu
+  const btnReset = document.getElementById("btn-live-reset");
+  if (btnReset) {
+    btnReset.addEventListener("click", () => {
+      fetch("/api/live/config", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reset: true })
+      }).then(() => {
+        pollLiveSnapshot();
+      }).catch(err => console.error("Error resetting live engine:", err));
+    });
+  }
+
+  // 5. Otomatik Başlatma: Uygulama açıldığı an anlık polling başlatılır
+  pollLiveSnapshot();
+  liveStreamInterval = setInterval(pollLiveSnapshot, 320);
+}
+
+function updatePauseButtonState(paused) {
+  const icon = document.getElementById("btn-live-pause-icon");
+  const text = document.getElementById("btn-live-pause-text");
+  const dot = document.getElementById("live-stream-dot");
+  const statusText = document.getElementById("live-stream-status-text");
+
+  if (paused) {
+    if (icon) icon.textContent = "▶️";
+    if (text) text.textContent = "Üretimi Devam Ettir";
+    if (dot) dot.style.backgroundColor = "#94a3b8";
+    if (statusText) statusText.textContent = "ÜRETİM DURAKLATILDI";
+  } else {
+    if (icon) icon.textContent = "⏸️";
+    if (text) text.textContent = "Üretimi Duraklat";
+    if (dot) dot.style.backgroundColor = "var(--accent-emerald)";
+    if (statusText) statusText.textContent = "CANLI AKIŞ AKTİF";
+  }
+}
+
+async function pollLiveSnapshot() {
+  try {
+    const res = await fetch("/api/live/stream");
+    if (!res.ok) return;
+    const data = await res.json();
+    renderLiveDashboard(data);
+  } catch (e) {
+    // Sunucu yeniden başlatılırken veya beklemede sessizce atla
+  }
+}
+
+function renderLiveDashboard(data) {
+  if (!data) return;
+
+  // 1. Hız ve Duraklatma Durumu
+  const epsElem = document.getElementById("live-current-eps");
+  if (epsElem && typeof data.speed_eps === "number") {
+    epsElem.textContent = data.speed_eps.toFixed(1);
+  }
+  if (typeof data.is_paused === "boolean" && data.is_paused !== liveIsPaused) {
+    liveIsPaused = data.is_paused;
+    updatePauseButtonState(liveIsPaused);
+  }
+
+  // 2. Modül 1: Dijital Kod Göstergesi
+  if (data.recent_codes && data.recent_codes.length > 0) {
+    const latest = data.recent_codes[0];
+    const codeStr = String(latest.code_str || "000000").padStart(6, "0");
+
+    const p0 = document.getElementById("live-digit-p0");
+    const p1 = document.getElementById("live-digit-p1");
+    const p2 = document.getElementById("live-digit-p2");
+    const s3 = document.getElementById("live-digit-s3");
+    const s4 = document.getElementById("live-digit-s4");
+    const s5 = document.getElementById("live-digit-s5");
+
+    if (p0) p0.textContent = codeStr[0];
+    if (p1) p1.textContent = codeStr[1];
+    if (p2) p2.textContent = codeStr[2];
+    if (s3) s3.textContent = codeStr[3];
+    if (s4) s4.textContent = codeStr[4];
+    if (s5) s5.textContent = codeStr[5];
+
+    const timeElem = document.getElementById("live-meta-time");
+    if (timeElem) timeElem.textContent = latest.time_str || "--:--:--";
+
+    const seedElem = document.getElementById("live-meta-seed");
+    if (seedElem) {
+      const seedVal = String(latest.seed_used);
+      seedElem.textContent = seedVal.length > 14 ? seedVal.substring(0, 14) + "…" : seedVal;
+      seedElem.title = seedVal;
+    }
+
+    const countElem = document.getElementById("live-meta-count");
+    if (countElem) countElem.textContent = (data.total_generated || 0).toLocaleString();
+  }
+
+  // 3. Modül 2: Tutarlılık & Benzerlik Metrikleri
+  // 3.1 Benzersizlik Oranı (Uniqueness)
+  const uniqRateElem = document.getElementById("live-uniqueness-rate");
+  const uniqBarElem = document.getElementById("live-uniqueness-bar");
+  const uniqCountElem = document.getElementById("live-unique-count");
+  const totalCountElem = document.getElementById("live-total-count");
+  const repeatStatusElem = document.getElementById("live-repeat-status");
+
+  if (uniqRateElem && typeof data.uniqueness_pct === "number") {
+    uniqRateElem.textContent = `%${data.uniqueness_pct.toFixed(2)}`;
+    if (uniqBarElem) {
+      uniqBarElem.style.width = `${Math.min(100, Math.max(0, data.uniqueness_pct))}%`;
+      uniqBarElem.className = "mini-progress-fill " + (data.uniqueness_pct >= 98 ? "fill-green" : (data.uniqueness_pct >= 90 ? "fill-amber" : "fill-red"));
+    }
+  }
+  if (uniqCountElem) uniqCountElem.textContent = (data.unique_codes_count || 0).toLocaleString();
+  if (totalCountElem) totalCountElem.textContent = (data.total_generated || 0).toLocaleString();
+  if (repeatStatusElem) {
+    if (data.full_collisions_count > 0) {
+      repeatStatusElem.innerHTML = `<span style="color:var(--accent-rose)">⚠️ ${data.full_collisions_count} Tam Tekrar!</span>`;
+    } else {
+      repeatStatusElem.innerHTML = `<span style="color:var(--accent-emerald)">✓ Sıfır Tekrar</span>`;
+    }
+  }
+
+  // 3.2 İlk 3 Hane Benzerlik Oranı
+  const prefixSimElem = document.getElementById("live-prefix-sim-rate");
+  const prefixCollElem = document.getElementById("live-prefix-coll-count");
+  if (prefixSimElem && typeof data.prefix_similarity_pct === "number") {
+    prefixSimElem.textContent = `%${data.prefix_similarity_pct.toFixed(4)}`;
+    if (data.prefix_similarity_pct > 0.5) {
+      prefixSimElem.style.color = "var(--accent-rose)";
+    } else if (data.prefix_similarity_pct > 0.25) {
+      prefixSimElem.style.color = "var(--accent-amber)";
+    } else {
+      prefixSimElem.style.color = "var(--accent-emerald)";
+    }
+  }
+  if (prefixCollElem) prefixCollElem.textContent = (data.prefix_collisions_count || 0).toLocaleString();
+
+  // 3.3 Hane Bazlı Hamming Benzerliği
+  const digitSimElem = document.getElementById("live-digit-sim-rate");
+  const avgDigitsElem = document.getElementById("live-avg-digits");
+  if (digitSimElem && typeof data.digit_similarity_pct === "number") {
+    digitSimElem.textContent = `%${data.digit_similarity_pct.toFixed(2)}`;
+    if (digitSimElem) {
+      digitSimElem.style.color = data.digit_similarity_pct > 20.0 ? "var(--accent-rose)" : "#ffffff";
+    }
+  }
+  if (avgDigitsElem && typeof data.avg_matched_digits === "number") {
+    avgDigitsElem.textContent = data.avg_matched_digits.toFixed(2);
+  }
+
+  // 3.4 Shannon Entropisi
+  const entropyElem = document.getElementById("live-entropy-rate");
+  const entropyEffElem = document.getElementById("live-entropy-eff");
+  if (entropyElem && typeof data.rolling_entropy_bits === "number") {
+    entropyElem.textContent = `${data.rolling_entropy_bits.toFixed(3)} bit`;
+  }
+  if (entropyEffElem && typeof data.entropy_efficiency_pct === "number") {
+    entropyEffElem.textContent = `%${data.entropy_efficiency_pct.toFixed(1)}`;
+  }
+
+  // 3.5 Anomali Rozeti ve Açıklama Kutusu
+  const anomalyPill = document.getElementById("live-anomaly-pill");
+  const anomalyBadgeText = document.getElementById("live-anomaly-badge-text");
+  const anomalyBox = document.getElementById("live-anomaly-box");
+  const anomalyDetailText = document.getElementById("live-anomaly-detail-text");
+
+  if (anomalyBadgeText && data.anomaly_text) {
+    anomalyBadgeText.textContent = data.anomaly_text;
+  }
+  if (anomalyPill) {
+    if (data.anomaly_level === "CRITICAL_ANOMALY") {
+      anomalyPill.className = "status-pill status-error";
+    } else if (data.anomaly_level === "SUSPICIOUS") {
+      anomalyPill.className = "status-pill status-running";
+    } else {
+      anomalyPill.className = "status-pill status-ready";
+    }
+  }
+
+  if (anomalyBox) {
+    if (data.anomaly_level === "CRITICAL_ANOMALY") {
+      anomalyBox.className = "live-alert-box alert-critical";
+    } else if (data.anomaly_level === "SUSPICIOUS") {
+      anomalyBox.className = "live-alert-box alert-suspicious";
+    } else {
+      anomalyBox.className = "live-alert-box alert-normal";
+    }
+  }
+
+  if (anomalyDetailText) {
+    if (data.anomaly_reasons && data.anomaly_reasons.length > 0) {
+      anomalyDetailText.innerHTML = data.anomaly_reasons.map(r => `• ${r}`).join("<br>");
+    } else {
+      anomalyDetailText.textContent = "Sistem tutarlı. Çıktılar rastlantısal bağımsızlık kriterlerini sağlıyor.";
+    }
+  }
+
+  // 3.6 Son Çakışma Özeti
+  const lastCollElem = document.getElementById("live-last-collision-summary");
+  if (lastCollElem && data.last_collision_summary) {
+    lastCollElem.textContent = data.last_collision_summary;
+  }
+
+  // 4. Tablo 1: Canlı Kod Akış Ticker'ı (Modül 1)
+  const tbodyStream = document.getElementById("tbody-live-stream");
+  if (tbodyStream && data.recent_codes && data.recent_codes.length > 0) {
+    tbodyStream.innerHTML = data.recent_codes.slice(0, 15).map((c, i) => {
+      const isNew = (i === 0 && c.index !== lastCodeIndexRendered);
+      const rowClass = isNew ? "row-new" : "";
+      const codeStr = String(c.code_str || "000000").padStart(6, "0");
+      const prefix = codeStr.substring(0, 3);
+      const suffix = codeStr.substring(3, 6);
+      const seedStr = String(c.seed_used || "");
+      const shortSeed = seedStr.length > 12 ? seedStr.substring(0, 12) + "…" : seedStr;
+
+      return `<tr class="${rowClass}">
+        <td><b>#${c.index}</b></td>
+        <td class="mono">${c.time_str}</td>
+        <td>
+          <span style="color:var(--accent-cyan); font-weight:700; font-family:'JetBrains Mono'">${prefix}</span>
+          <span style="color:var(--text-dim)">•</span>
+          <span style="color:var(--accent-emerald); font-weight:700; font-family:'JetBrains Mono'">${suffix}</span>
+        </td>
+        <td><span class="badge badge-neutral">${prefix}</span></td>
+        <td class="mono" style="font-size:0.75rem; color:var(--text-dim);" title="${seedStr}">${shortSeed}</td>
+      </tr>`;
+    }).join("");
+
+    if (data.recent_codes.length > 0) {
+      lastCodeIndexRendered = data.recent_codes[0].index;
+    }
+  }
+
+  // 5. Tablo 2: Anlık Çakışma & Benzerlik Günlüğü (Modül 2)
+  const tbodyColl = document.getElementById("tbody-live-collisions");
+  if (tbodyColl) {
+    if (data.recent_collisions && data.recent_collisions.length > 0) {
+      tbodyColl.innerHTML = data.recent_collisions.slice(0, 10).map(coll => {
+        const isFull = coll.event_type === "full_6";
+        const badgeClass = isFull ? "badge-danger" : "badge-warning";
+        const badgeLabel = isFull ? "TAM KOD" : "İLK 3 HANE";
+        const rowClass = isFull ? "row-collision-full" : "row-collision";
+
+        return `<tr class="${rowClass}">
+          <td><span class="badge ${badgeClass}">${badgeLabel}</span></td>
+          <td class="mono font-bold" style="color:var(--accent-amber)">${coll.matched_value}</td>
+          <td class="mono">${coll.current_code}</td>
+          <td class="mono">${coll.previous_code}</td>
+          <td><b>${coll.step_delta}</b> adım</td>
+          <td><b>${coll.time_delta_seconds.toFixed(2)}</b>s</td>
+        </tr>`;
+      }).join("");
+    } else {
+      tbodyColl.innerHTML = '<tr><td colspan="6" class="text-center py-3">Henüz çakışma tespit edilmedi.</td></tr>';
+    }
+  }
+}
+

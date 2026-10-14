@@ -79,6 +79,60 @@ class ServerActivity:
             self.shutdown_requested = True
 
 
+from time_generator import TimeSeedEngine, GeneratedCodeEvent
+from live_evaluator import LiveConsistencyEvaluator, CollisionEvent
+
+
+class LiveStreamingManager:
+    """Modül 1 ve Modül 2'yi birbirine bağlayan arka plan gerçek zamanlı üretim ve analiz motoru."""
+    def __init__(self):
+        self.lock = threading.Lock()
+        self.engine = TimeSeedEngine(method="high_res_crypto")
+        self.evaluator = LiveConsistencyEvaluator(window_size=5000)
+        self.speed_eps = 12.0  # saniyede üretilen kod sayısı
+        self.is_paused = False
+        self.is_running = True
+        self._thread = None
+
+    def start(self):
+        if self._thread is None:
+            self._thread = threading.Thread(target=self._run_loop, daemon=True)
+            self._thread.start()
+
+    def _run_loop(self):
+        while self.is_running:
+            if not self.is_paused:
+                with self.lock:
+                    event = self.engine.generate_next()
+                    self.evaluator.process_code(event)
+            sleep_time = 1.0 / max(1.0, min(100.0, self.speed_eps))
+            time.sleep(sleep_time)
+
+    def set_config(self, method=None, speed=None, is_paused=None, reset=False):
+        with self.lock:
+            if method:
+                self.engine.set_method(method)
+            if speed is not None:
+                self.speed_eps = float(speed)
+            if is_paused is not None:
+                self.is_paused = bool(is_paused)
+            if reset:
+                self.evaluator.reset()
+                self.engine.counter = 0
+
+    def get_snapshot(self):
+        with self.lock:
+            metrics = self.evaluator.get_live_metrics()
+            metrics["active_method"] = self.engine.method
+            metrics["speed_eps"] = self.speed_eps
+            metrics["is_paused"] = self.is_paused
+            return metrics
+
+
+LIVE_MANAGER = LiveStreamingManager()
+LIVE_MANAGER.start()
+
+
 SERVER_ACTIVITY = ServerActivity()
 
 
@@ -374,6 +428,8 @@ class DesktopRequestHandler(http.server.SimpleHTTPRequestHandler):
             elif rel_path.endswith(".html"):
                 content_type = "text/html; charset=utf-8"
             self.serve_file(file_path, content_type)
+        elif path == "/api/live/stream":
+            self.send_json_response(LIVE_MANAGER.get_snapshot())
         elif path == "/api/status":
             self.send_json_response({
                 "is_running": SIM_STATE.is_running,
@@ -482,6 +538,13 @@ class DesktopRequestHandler(http.server.SimpleHTTPRequestHandler):
                 })
             except Exception as e:
                 self.send_json_response({"error": str(e)}, status=400)
+        elif path == "/api/live/config":
+            method = data.get("method")
+            speed = data.get("speed")
+            is_paused = data.get("is_paused")
+            reset = bool(data.get("reset", False))
+            LIVE_MANAGER.set_config(method=method, speed=speed, is_paused=is_paused, reset=reset)
+            self.send_json_response({"success": True, "snapshot": LIVE_MANAGER.get_snapshot()})
         elif path == "/api/heartbeat":
             self.send_json_response({"status": "alive"})
         elif path == "/api/shutdown":
